@@ -15,7 +15,7 @@ private:
 public:
 	rshell();
 	void setInput(string userInput);
-	tokenizer<> parseInput(string userInput);
+	tokenizer<> parseInput();
 	void runCommands(tokenizer<> args);
 };
 

@@ -1,7 +1,5 @@
 #include "rshell.h"
 
-#include <cstring>
-
 using namespace std;
 
 rshell::rshell()
@@ -12,11 +10,17 @@ void rshell::setInput(string userInput)
 	input = userInput;
 }
 
-tokenizer<> rshell::parseInput(string userInput)
+tokenizer<> rshell::parseInput()
 {
-	tokenizer<> args(userInput);
+	tokenizer<> args(input);
 	return args;
 }
 
 void rshell::runCommands(tokenizer<> args)
-{}
+{
+	for(tokenizer<>::iterator it = args.begin(); it != args.end(); ++it)
+	{
+		cout << *it << " ";
+	}
+	cout << endl;	
+}
