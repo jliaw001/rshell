@@ -1,37 +1,59 @@
-#include <iostream>
 #include <boost/tokenizer.hpp>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <iostream>
+#include <sys/wait.h>
 #include <vector>
 
 using namespace std;
 using namespace boost;
 
+struct splitArgs
+{
+	vector<string> cmds;
+	vector<string> cnctrs;
+};
+
+// Helper Functions:
 // checks if the string passed in is a connector
 bool isConnector(string s);
-// clears cin and the commands vector to ready it for the next set of commands
-void clean(vector<string> v);
+// clears target vectors
+void clean(vector<string> v, vector<string> v2);
+// returns an integer based on connector
+int checkConnector(string s);
+// function to put each component of a string into a char[]
+// and moving all those char[] into a vector of char*
+vector<char*> convertStr(string s);
+
+// Main Functions:
 // takes the user input and separates it, returning a vector of
 // all the commands separated by the connectors
-vector<string> parseInput(string input);
+splitArgs parseInput(string input);
+// function that takes the command vector and runs all the commands
+// uses the connector vector to determine which commands to run
+void runCommands(vector<string> cmds, vector<string> cncts);
 
 int main()
 {
+	// string for user input
 	string input;
+	// vector to hold all the commands
 	vector<string> commands;
+	// vector to hold all the connectors
+	// push in a ; since the first command will always tried to
+	// be ran no matter what
+	vector<string> connectors;
+	//connectors.push_back(";");
+	splitArgs cmd_vectors;
+
 	do
 	{
-		clean(commands);
-
+		clean(commands, connectors);
 		cout << "$ ";
 		getline(cin, input);
-		commands = parseInput(args);
-
-		for(int i = 0; i < commands.size(); ++i)
-		{
-			cout << commands.at(i);
-			cout << endl;
-		}
-		
-		clean(commands);
+		cmd_vectors = parseInput(input);
+		runCommands(cmd_vectors.cmds, cmd_vectors.cnctrs);		
 
 	} while (input != "exit");
 	
@@ -48,15 +70,49 @@ bool isConnector(string s)
 	return false;
 }
 
-void clean(vector<string> v)
+void clean(vector<string> v, vector<string> v2)
 {
-	cin.clear();
+	fflush(0);
 	for(int i = 0; i < v.size(); ++i)
 		v.pop_back();
+
+	for(int i = 0; i < v2.size(); ++i)
+		v2.pop_back();
 }
 
-vector<string> parseInput(tokenizer< char_separator<char> > args)
+int checkConnector(string s)
 {
+	if(s.find(';') != string::npos)
+		return 0;
+	if(s == "||")
+		return 1;
+	if(s == "&&")
+		return 2;
+
+	return -1;
+}
+
+vector<char*> convertStr(string s)
+{	
+	vector<char*> arg_list;
+	char_separator<char> sep;
+	tokenizer< char_separator<char> > args(s, sep);	
+	tokenizer< char_separator<char> >::iterator it = args.begin();
+	for(; it != args.end(); ++it)
+	{
+		char *arg = new char[(*it).size()];
+		strcpy(arg, (*it).c_str());
+		arg_list.push_back(arg);
+	}	
+	char * t = '\0';
+	arg_list.push_back(t);
+	return arg_list;
+}
+
+splitArgs parseInput(string input)
+{
+	splitArgs cmd_vectors;
+	cmd_vectors.cnctrs.push_back(";");
 	// vector to store initially separate commands	
 	vector<string> sep_commands;
 	// vector to store commands separated by connectors
@@ -77,24 +133,123 @@ vector<string> parseInput(tokenizer< char_separator<char> > args)
 	int j = 0;
 	for(int i = 0; i < sep_commands.size(); ++i)
 	{
-		commands.push_back(sep_commands.at(i));
-		// special check for only connector not separated by space
-		string temp = commands.at(j);
-		if(temp.find(';') == string::npos)
-		{
+		cmd_vectors.cmds.push_back(sep_commands.at(i));
+		if(cmd_vectors.cmds.at(j).find(";") == string::npos)
+		{	
 			// concatenates commands together until reaching a connector
 			++i;
 			while((i < sep_commands.size()) && (!isConnector(sep_commands.at(i))))
-			{
-				commands.at(j) += " " + sep_commands.at(i);
+			{	
+				cmd_vectors.cmds.at(j) += " " + sep_commands.at(i);
 				++i;
 			}
-			// adds the connector to the end of the string along with null char
-			// and moves to the next spot in the commands vector
-			if(i < sep_commands.size())
-				commands.at(j) += " " + sep_commands.at(i) + '\0';
+			
+			if(i < sep_commands.size() && sep_commands.at(i).find(";") != string::npos)
+			{
+				string temp = sep_commands.at(i);
+				sep_commands.at(i) = temp.substr(0, temp.size() - 1);
+				cmd_vectors.cmds.at(j) += " " + sep_commands.at(i);
+				cmd_vectors.cnctrs.push_back(";");
+			}
+			else if(i < sep_commands.size() && sep_commands.at(i).find(";") == string::npos)
+				cmd_vectors.cnctrs.push_back(sep_commands.at(i));
+	
+			++j;		
 		}
-		++j;		
+		else
+		{
+			string temp = cmd_vectors.cmds.at(j);
+			cmd_vectors.cmds.at(j) = temp.substr(0, temp.size() - 1);
+			cmd_vectors.cnctrs.push_back(";");
+			++j;
+		}
 	}
-	return commands;
+	return cmd_vectors;
 }
+
+void runCommands(vector<string> cmds, vector<string> cncts)
+{
+	vector<char*> command_list;
+	int connectorID = 0;
+	bool failed = false;
+
+	for(int i = 0; i < cmds.size(); ++i)
+	{	
+		connectorID = checkConnector(cncts.at(i));
+		command_list = convertStr(cmds.at(i));	
+
+		if(connectorID == 0)
+		{	
+			pid_t pid = fork();
+			if(pid < 0)
+			{
+				perror("fork failed.");
+				exit(1);
+			}
+			else if(pid == 0)
+			{	
+				failed = false;
+				execvp(command_list[0], &command_list[0]);
+				perror("execvp failed");
+				failed = true;
+			}
+			else
+			{
+				int status;
+				if(wait(&status) < 0)
+				{
+					perror("Child process encountered an error.");
+					exit(1);
+				}
+			}
+		}
+		else if(connectorID == 1 && failed)
+		{
+			pid_t pid = fork();
+			if(pid < 0)
+			{
+				perror("fork failed.");
+				exit(1);
+			}
+			else if(pid == 0)
+			{	
+				failed = false;
+				execvp(command_list[0], &command_list[0]);
+				perror("execvp failed");
+				failed = true;
+			}
+			else
+			{
+				int status;
+				if(wait(&status) < 0)
+				{
+					perror("Child process encountered an error.");
+					exit(1);
+				}
+			
+			}
+		}
+		else if(connectorID == 2 && !failed)
+		{
+			pid_t pid = fork();
+			if(pid < 0)
+			{
+				perror("fork failed.");
+				exit(1);
+			}
+			else if(pid == 0)
+			{	
+				failed = false;
+				execvp(command_list[0], &command_list[0]);
+				perror("execvp failed");
+				failed = true;
+			}
+			else
+			{
+				int status;
+				waitpid(pid, &status, 0);
+			}
+		}
+	}
+}	
+
