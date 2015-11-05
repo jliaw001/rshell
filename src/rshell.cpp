@@ -4,6 +4,7 @@
 #include <cstring>
 #include <iostream>
 #include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
 
 using namespace std;
@@ -47,12 +48,31 @@ int main()
 	// push in a ; since the first command will always tried to
 	// be ran no matter what
 	vector<string> connectors;
-	//connectors.push_back(";");
+	// connectors.push_back(";");
 	splitArgs cmd_vectors;
+
+	// setting up hostname
+	char name[512];
+	bool gotName = true;
+	if(gethostname(name, sizeof(name)) != 0)
+	{
+		gotName = false;
+		perror("Could not retrieve hostname.");
+	}
+	
+	// setting up login
+	char * login = getlogin();
+	if(!login)
+		perror("Could not retrieve login name.");
 
 	do
 	{
+		// prepares vectors for stuff
 		clean(commands, connectors);
+		
+		// only prints host and login if both existed
+		if(gotName && login)
+			cout << '[' << login << '@' << name << ']';
 		cout << "$ ";
 		getline(cin, input);
 		input = removeComments(input);
@@ -274,6 +294,10 @@ void runCommands(vector<string> cmds, vector<string> cncts)
 				}
 			}
 		}
+		
+		// deletes allocated memory
+		for(unsigned j = 0; j < command_list.size(); ++j)
+			delete command_list.at(j);
 	}
 }	
 
