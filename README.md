@@ -12,7 +12,9 @@ rshell is a custom made command shell
 rshell uses the Tokenizer class from the boost library
 
 ##Known Bugs
-
+- putting a space before a command causes an error
+	i.e. " echo hello world"
+- unable to handle commands that don't "just work" with execvp()
 
 ##Test Directory:
 1. single_command.sh:	 tests single commands
