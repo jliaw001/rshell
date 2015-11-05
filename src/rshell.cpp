@@ -25,6 +25,9 @@ int checkConnector(string s);
 // function to put each component of a string into a char[]
 // and moving all those char[] into a vector of char*
 vector<char*> convertStr(string s);
+// function to remove everything after a '#'
+// as these are all comments and can be ignored
+string removeComments(string s);
 
 // Main Functions:
 // takes the user input and separates it, returning a vector of
@@ -52,6 +55,7 @@ int main()
 		clean(commands, connectors);
 		cout << "$ ";
 		getline(cin, input);
+		input = removeComments(input);
 		cmd_vectors = parseInput(input);
 		runCommands(cmd_vectors.cmds, cmd_vectors.cnctrs);		
 
@@ -73,10 +77,10 @@ bool isConnector(string s)
 void clean(vector<string> v, vector<string> v2)
 {
 	fflush(0);
-	for(int i = 0; i < v.size(); ++i)
+	for(unsigned i = 0; i < v.size(); ++i)
 		v.pop_back();
 
-	for(int i = 0; i < v2.size(); ++i)
+	for(unsigned i = 0; i < v2.size(); ++i)
 		v2.pop_back();
 }
 
@@ -109,6 +113,15 @@ vector<char*> convertStr(string s)
 	return arg_list;
 }
 
+string removeComments(string s)
+{
+	// if there are no comments, we're done
+	if(s.find('#') == string::npos)
+		return s;
+
+	return s.substr(0, s.find('#'));
+}
+
 splitArgs parseInput(string input)
 {
 	splitArgs cmd_vectors;
@@ -131,7 +144,7 @@ splitArgs parseInput(string input)
 	// loop to put all the strings of a single command together
 	// single commands are separated by connectors
 	int j = 0;
-	for(int i = 0; i < sep_commands.size(); ++i)
+	for(unsigned i = 0; i < sep_commands.size(); ++i)
 	{
 		cmd_vectors.cmds.push_back(sep_commands.at(i));
 		if(cmd_vectors.cmds.at(j).find(";") == string::npos)
@@ -173,7 +186,7 @@ void runCommands(vector<string> cmds, vector<string> cncts)
 	int connectorID = 0;
 	bool failed = false;
 
-	for(int i = 0; i < cmds.size(); ++i)
+	for(unsigned i = 0; i < cmds.size(); ++i)
 	{	
 		connectorID = checkConnector(cncts.at(i));
 		if(cmds.at(i) == "exit")
