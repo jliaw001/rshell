@@ -1,0 +1,22 @@
+Script started on Wed 04 Nov 2015 10:49:46 PM PST
+jliaw001@hammer:~/cs100/assignments/assignment1
+[jliaw001@hammer assignment1]$ bin/rshell
+[jliaw001@hammer.cs.ucr.edu]$ exit
+jliaw001@hammer:~/cs100/assignments/assignment1
+[jliaw001@hammer assignment1]$ bin/rshell
+[jliaw001@hammer.cs.ucr.edu]$ ls -a; exit
+.  ..  bin  .git  LICENSE  makefile  README.md	src  tests
+jliaw001@hammer:~/cs100/assignments/assignment1
+[jliaw001@hammer assignment1]$ bin/rshell
+[jliaw001@hammer.cs.ucr.edu]$ ls -a; && exit
+.  ..  bin  .git  LICENSE  makefile  README.md	src  tests
+jliaw001@hammer:~/cs100/assignments/assignment1
+[jliaw001@hammer assignment1]$ bin/rshell
+[jliaw001@hammer.cs.ucr.edu]$ ls -a; echo now exiting; exit
+.  ..  bin  .git  LICENSE  makefile  README.md	src  tests
+now exiting
+jliaw001@hammer:~/cs100/assignments/assignment1
+[jliaw001@hammer assignment1]$ exit
+exit
+
+Script done on Wed 04 Nov 2015 10:50:51 PM PST

@@ -1,0 +1,33 @@
+Script started on Wed 04 Nov 2015 10:38:09 PM PST
+jliaw001@hammer:~/cs100/assignments/assignment1
+[jliaw001@hammer assignment1]$ bin/rshell
+[jliaw001@hammer.cs.ucr.edu]$ ls; echo hello world
+bin  LICENSE  makefile	README.md  src	tests
+hello world
+[jliaw001@hammer.cs.ucr.edu]$ ls -a; echo hello world
+.  ..  bin  .git  LICENSE  makefile  README.md	src  tests
+hello world
+[jliaw001@hammer.cs.ucr.edu]$ ls -a && echo hello world
+.  ..  bin  .git  LICENSE  makefile  README.md	src  tests
+hello world
+[jliaw001@hammer.cs.ucr.edu]$ ls -a || echo hello world
+.  ..  bin  .git  LICENSE  makefile  README.md	src  tests
+[jliaw001@hammer.cs.ucr.edu]$ ls -a || echo hello world || ls -a
+.  ..  bin  .git  LICENSE  makefile  README.md	src  tests
+[jliaw001@hammer.cs.ucr.edu]$ ls && echo hello world && ls -a
+bin  LICENSE  makefile	README.md  src	tests
+hello world
+.  ..  bin  .git  LICENSE  makefile  README.md	src  tests
+[jliaw001@hammer.cs.ucr.edu]$ ls; echo hello world || echo no print && echo print; ls -a
+bin  LICENSE  makefile	README.md  src	tests
+hello world
+print
+.  ..  bin  .git  LICENSE  makefile  README.md	src  tests
+[jliaw001@hammer.cs.ucr.edu]$ ls -a; echo hello world || ls; exit
+.  ..  bin  .git  LICENSE  makefile  README.md	src  tests
+hello world
+jliaw001@hammer:~/cs100/assignments/assignment1
+[jliaw001@hammer assignment1]$ exit
+exit
+
+Script done on Wed 04 Nov 2015 10:40:50 PM PST
