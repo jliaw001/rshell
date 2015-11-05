@@ -95,7 +95,7 @@ int checkConnector(string s)
 vector<char*> convertStr(string s)
 {	
 	vector<char*> arg_list;
-	char_separator<char> sep;
+	char_separator<char> sep(" ", "", keep_empty_tokens);
 	tokenizer< char_separator<char> > args(s, sep);	
 	tokenizer< char_separator<char> >::iterator it = args.begin();
 	for(; it != args.end(); ++it)
@@ -176,6 +176,10 @@ void runCommands(vector<string> cmds, vector<string> cncts)
 	for(int i = 0; i < cmds.size(); ++i)
 	{	
 		connectorID = checkConnector(cncts.at(i));
+		if(cmds.at(i) == "exit")
+		{
+			exit(0);
+		}
 		command_list = convertStr(cmds.at(i));	
 
 		if(connectorID == 0)
@@ -192,6 +196,7 @@ void runCommands(vector<string> cmds, vector<string> cncts)
 				execvp(command_list[0], &command_list[0]);
 				perror("execvp failed");
 				failed = true;
+				exit(1);
 			}
 			else
 			{
@@ -217,6 +222,7 @@ void runCommands(vector<string> cmds, vector<string> cncts)
 				execvp(command_list[0], &command_list[0]);
 				perror("execvp failed");
 				failed = true;
+				exit(1);
 			}
 			else
 			{
@@ -243,11 +249,16 @@ void runCommands(vector<string> cmds, vector<string> cncts)
 				execvp(command_list[0], &command_list[0]);
 				perror("execvp failed");
 				failed = true;
+				exit(1);
 			}
 			else
 			{
 				int status;
-				waitpid(pid, &status, 0);
+				if(wait(&status) < 0)
+				{
+					perror("Child process encountered an error.");
+					exit(1);
+				}
 			}
 		}
 	}
