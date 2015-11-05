@@ -1,6 +1,9 @@
+#compiler flag
 CC=g++
 
+#compiling flags
 CFLAGS=-Wall -Werror -ansi -pedantic
+
 
 all: bin rshell
 
