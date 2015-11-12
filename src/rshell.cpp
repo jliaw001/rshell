@@ -1,3 +1,4 @@
+#include <boost/algorithm/string.hpp>
 #include <boost/tokenizer.hpp>
 #include <cstdlib>
 #include <cstdio>
@@ -75,6 +76,7 @@ int main()
 			cout << '[' << login << '@' << name << ']';
 		cout << "$ ";
 		getline(cin, input);
+		trim(input);
 		input = removeComments(input);
 		cmd_vectors = parseInput(input);
 		runCommands(cmd_vectors.cmds, cmd_vectors.cnctrs);		
