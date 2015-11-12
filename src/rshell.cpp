@@ -18,7 +18,7 @@ struct splitArgs
 };
 
 // Helper Functions:
-// checks if the string passed in is a connector
+// check if the string passed in is a connector
 bool isConnector(string s);
 // clears target vectors
 void clean(vector<string> v, vector<string> v2);
