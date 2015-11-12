@@ -12,8 +12,6 @@ rshell is a custom made command shell
 rshell uses the Tokenizer class from the boost library
 
 ##Known Bugs
-- putting a space before a command causes an error.
-	-i.e. " echo hello world"
 - unable to handle commands that don't "just work" with execvp()
 - the exit command will exit no matter what comes before it (except if it's a comment).
 	-i.e. "echo hello world || exit" would still exit
