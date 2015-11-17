@@ -1,4 +1,4 @@
-##CS100 Assignment 1: Command Shell
+##CS100 Assignment: Command Shell
 rshell is a custom made command shell
 
 ##How to Run
@@ -13,8 +13,6 @@ rshell uses the Tokenizer class from the boost library
 
 ##Known Bugs
 - unable to handle commands that don't "just work" with execvp()
-- the exit command will exit no matter what comes before it (except if it's a comment).
-	-i.e. "echo hello world || exit" would still exit
 
 ##Test Directory:
 1. single_command.script: tests single commands
