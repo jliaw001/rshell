@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <queue>
+#include <sys/mman.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
@@ -11,48 +13,64 @@
 using namespace std;
 using namespace boost;
 
-struct splitArgs
-{
-	vector<string> cmds;
-	vector<string> cnctrs;
-};
-
 // Helper Functions:
-// check if the string passed in is a connector
-bool isConnector(string s);
-// clears target vectors
-void clean(vector<string> v, vector<string> v2);
-// returns an integer based on connector
-int checkConnector(string s);
-// function to put each component of a string into a char[]
-// and moving all those char[] into a vector of char*
-vector<char*> convertStr(string s);
 // function to remove everything after a '#'
 // as these are all comments and can be ignored
 string removeComments(string s);
 
+// function to check if a particular token
+// is a connector and returns an int depending
+// on which connector it is
+// returns -1 if not a connector
+int isConnector(string s);
+
+// function to iterate through the command vector
+// and separate the commands based on connectors
+// removes tokens when command has been made
+vector<char*> makeCommand(vector<string> &commands);
+
+// fuction that forks and runs a given command
+void run(vector<char*> cmd, int connector);
+
 // Main Functions:
-// takes the user input and separates it, returning a vector of
-// all the commands separated by the connectors
-splitArgs parseInput(string input);
-// function that takes the command vector and runs all the commands
-// uses the connector vector to determine which commands to run
-void runCommands(vector<string> cmds, vector<string> cncts);
+// parses the input and stores the tokens
+// in a vector
+void parseInput(string input, queue<string> &commands);
+
+// main function that takes the commands and runs them
+// with execvp
+void runCommands(queue<string> &commands);
+
+
+// booleans that keep track of the status for
+// whether or not a command executed correctly
+// pfailed is for checking commands within
+// precedence operators
+static bool *failed;
+//static bool * pfailed;
+
+// some global constants for connectors
+const int SEMI_COLON = 0;
+const int OR = 1;
+const int AND = 2;
 
 int main()
 {
 	// string for user input
 	string input;
-	// vector to hold all the commands
-	vector<string> commands;
-	// vector to hold all the connectors
-	// push in a ; since the first command will always tried to
-	// be ran no matter what
-	vector<string> connectors;
-	// connectors.push_back(";");
-	splitArgs cmd_vectors;
-
-	// setting up hostname
+	
+	// queue to hold actual commands and flags
+	queue<string> commands;
+	
+	// using mmap to preserve the bool through child processes
+	failed = static_cast<bool *>(mmap(NULL, sizeof *failed, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0));
+    if(failed == MAP_FAILED)
+    {
+        perror("Could not return state of process");
+        exit(1);
+    }
+    
+	// setting up login and hostname
 	char name[512];
 	bool gotName = true;
 	if(gethostname(name, sizeof(name)) != 0)
@@ -66,73 +84,35 @@ int main()
 	if(!login)
 		perror("Could not retrieve login name.");
 
-	do
+	while (input != "exit")
 	{
-		// prepares vectors for stuff
-		clean(commands, connectors);
-		
+	    // set initial value to false since nothing has failed yet
+	    *failed = false;
+	    
+	    // prints console
 		// only prints host and login if both existed
 		if(gotName && login)
 			cout << '[' << login << '@' << name << ']';
 		cout << "$ ";
+		
+		// grab the input and prepare it for parsing
+		fflush(0);
 		getline(cin, input);
+		if(input == "")
+		    continue;
+		    
 		trim(input);
 		input = removeComments(input);
-		cmd_vectors = parseInput(input);
-		runCommands(cmd_vectors.cmds, cmd_vectors.cnctrs);		
+		
+		// separate the input into the commands vector
+		commands.push(";");
+		parseInput(input, commands);
 
-	} while (input != "exit");
+        // run the commands
+        runCommands(commands);
+	}
 	
 	return 0;
-}
-
-bool isConnector(string s)
-{
-	string connectors = "|| &&";
-	if(s.find(';') != string::npos)
-		return true;
-	if(connectors.find(s) != string::npos)
-		return true;
-	return false;
-}
-
-void clean(vector<string> v, vector<string> v2)
-{
-	fflush(0);
-	for(unsigned i = 0; i < v.size(); ++i)
-		v.pop_back();
-
-	for(unsigned i = 0; i < v2.size(); ++i)
-		v2.pop_back();
-}
-
-int checkConnector(string s)
-{
-	if(s.find(';') != string::npos)
-		return 0;
-	if(s == "||")
-		return 1;
-	if(s == "&&")
-		return 2;
-
-	return -1;
-}
-
-vector<char*> convertStr(string s)
-{	
-	vector<char*> arg_list;
-	char_separator<char> sep(" ", "", keep_empty_tokens);
-	tokenizer< char_separator<char> > args(s, sep);	
-	tokenizer< char_separator<char> >::iterator it = args.begin();
-	for(; it != args.end(); ++it)
-	{
-		char *arg = new char[(*it).size()];
-		strcpy(arg, (*it).c_str());
-		arg_list.push_back(arg);
-	}	
-	char * t = '\0';
-	arg_list.push_back(t);
-	return arg_list;
 }
 
 string removeComments(string s)
@@ -144,162 +124,156 @@ string removeComments(string s)
 	return s.substr(0, s.find('#'));
 }
 
-splitArgs parseInput(string input)
+int isConnector(string s)
 {
-	splitArgs cmd_vectors;
-	cmd_vectors.cnctrs.push_back(";");
-	// vector to store initially separate commands	
-	vector<string> sep_commands;
-	// vector to store commands separated by connectors
-	vector<string> commands;
-
-	// use char_separator and tokenizer to split up 
-	// all the commands based on spaces
-	char_separator<char> sep(" ", "", keep_empty_tokens);
-	tokenizer< char_separator<char> >  args(input, sep);
-
-	// iterator and for loop to store all the tokens into a vector
-	tokenizer< char_separator<char> >::iterator it = args.begin();
-	for(; it != args.end(); ++it)
-		sep_commands.push_back(*it);
-
-	// loop to put all the strings of a single command together
-	// single commands are separated by connectors
-	int j = 0;
-	for(unsigned i = 0; i < sep_commands.size(); ++i)
-	{
-		cmd_vectors.cmds.push_back(sep_commands.at(i));
-		if(cmd_vectors.cmds.at(j).find(";") == string::npos)
-		{	
-			// concatenates commands together until reaching a connector
-			++i;
-			while((i < sep_commands.size()) && (!isConnector(sep_commands.at(i))))
-			{	
-				cmd_vectors.cmds.at(j) += " " + sep_commands.at(i);
-				++i;
-			}
-			
-			if(i < sep_commands.size() && sep_commands.at(i).find(";") != string::npos)
-			{
-				string temp = sep_commands.at(i);
-				sep_commands.at(i) = temp.substr(0, temp.size() - 1);
-				cmd_vectors.cmds.at(j) += " " + sep_commands.at(i);
-				cmd_vectors.cnctrs.push_back(";");
-			}
-			else if(i < sep_commands.size() && sep_commands.at(i).find(";") == string::npos)
-				cmd_vectors.cnctrs.push_back(sep_commands.at(i));
-	
-			++j;		
-		}
-		else
-		{
-			string temp = cmd_vectors.cmds.at(j);
-			cmd_vectors.cmds.at(j) = temp.substr(0, temp.size() - 1);
-			cmd_vectors.cnctrs.push_back(";");
-			++j;
-		}
-	}
-	return cmd_vectors;
+    if(s == ";")
+        return SEMI_COLON;
+    if(s == "||")
+        return OR;
+    if(s == "&&")
+        return AND;
+        
+    return -1;
 }
 
-void runCommands(vector<string> cmds, vector<string> cncts)
+void parseInput(string input, queue<string> &commands)
 {
-	vector<char*> command_list;
-	int connectorID = 0;
-	bool failed = false;
+    char_separator<char> sep(" ;()[]", ";()[]", keep_empty_tokens);
+	tokenizer< char_separator<char> >  cmds(input, sep);
+	tokenizer< char_separator<char> >::iterator it = cmds.begin();
+	for(; it != cmds.end(); ++it)
+	    if(*it != "")
+	        commands.push(*it);
+}
 
-	for(unsigned i = 0; i < cmds.size(); ++i)
-	{	
-		connectorID = checkConnector(cncts.at(i));
-		if(cmds.at(i) == "exit")
-		{
-			exit(0);
-		}
-		command_list = convertStr(cmds.at(i));	
+vector<char*> makeCommand(queue<string> &commands)
+{
+    vector<char*> cmd;
+    bool done = false;
+    while(!done)
+    {
+        // less than 0 means it's not a connector
+        if(!commands.empty() && isConnector(commands.front()) < 0)
+        {
+    		char *arg = new char[commands.front().size()];
+    		strcpy(arg, commands.front().c_str());
+    		cmd.push_back(arg);
+    		commands.pop();
+        }
+        else
+        {
+            done = true;
+        }
+    }
+	char * t = '\0';
+	cmd.push_back(t);
+	return cmd;
+}
 
-		if(connectorID == 0)
-		{	
-			pid_t pid = fork();
-			if(pid < 0)
-			{
-				perror("fork failed.");
-				exit(1);
-			}
-			else if(pid == 0)
-			{	
-				failed = false;
-				execvp(command_list[0], &command_list[0]);
-				perror("execvp failed");
-				failed = true;
-				exit(1);
-			}
-			else
-			{
-				int status;
-				if(wait(&status) < 0)
-				{
-					perror("Child process encountered an error.");
-					exit(1);
-				}
-			}
-		}
-		else if(connectorID == 1 && failed)
+void run(vector<char*> cmd, int connector)
+{
+    // check to see if the program should exit or not...
+    if(strcmp(cmd.front(), "exit") == 0)
+    {
+        if(connector == SEMI_COLON)
+            exit(0);
+        else if(connector == OR && *failed)
+            exit(0);
+        else if(connector == AND && !*failed)
+            exit(0);
+        else
+            return;
+    }
+    
+    // ...otherwise we continue as usual
+    // forks
+    pid_t pid = fork();
+    
+    // something went horribly wrong
+    if(pid < 0)
+    {
+        perror("fork failed.");
+        *failed = true;
+        exit(1);
+    }
+    
+    // we're in the child
+    else if(pid == 0)
+    {
+        if(connector == OR && !*failed)
+            exit(0);
+        
+        if(connector == AND && *failed)
+            exit(0);
+        
+        else
+        {
+            int status = execvp(cmd[0], &cmd[0]);
+            if (status < 0)
+            {
+                *failed = true;
+                perror("execvp failed");
+                exit(1);
+            }
+        }
+    }
+    
+    // we're in the parent
+    else
+    {
+        int status;
+		if(wait(&status) < 0)
 		{
-			pid_t pid = fork();
-			if(pid < 0)
-			{
-				perror("fork failed.");
-				exit(1);
-			}
-			else if(pid == 0)
-			{	
-				failed = false;
-				execvp(command_list[0], &command_list[0]);
-				perror("execvp failed");
-				failed = true;
-				exit(1);
-			}
-			else
-			{
-				int status;
-				if(wait(&status) < 0)
-				{
-					perror("Child process encountered an error.");
-					exit(1);
-				}
-			
-			}
-		}
-		else if(connectorID == 2 && !failed)
-		{
-			pid_t pid = fork();
-			if(pid < 0)
-			{
-				perror("fork failed.");
-				exit(1);
-			}
-			else if(pid == 0)
-			{	
-				failed = false;
-				execvp(command_list[0], &command_list[0]);
-				perror("execvp failed");
-				failed = true;
-				exit(1);
-			}
-			else
-			{
-				int status;
-				if(wait(&status) < 0)
-				{
-					perror("Child process encountered an error.");
-					exit(1);
-				}
-			}
+			perror("Child process encountered an error.");
+			*failed = true;
+			exit(1);
 		}
 		
-		// deletes allocated memory
-		for(unsigned j = 0; j < command_list.size(); ++j)
-			delete command_list.at(j);
-	}
-}	
+		// check the exit status of the child
+		else
+		{
+		    int exit_status = WEXITSTATUS(status);
+		    
+		    // 0 is the only time it succeeds
+		    if(exit_status == 0)
+		        *failed = false;
+		        
+		    // anything else means it failed in some way
+		    else
+		        *failed = true;
+		}
+    }
+}
 
+void runCommands(queue<string> &commands)
+{
+    // vector of char* to store command in a way
+    // that execvp() can take in
+    vector<char*> cmd;
+    
+    // determines what the previous connector was
+    int connector = 0;
+    
+    while(!commands.empty())
+    {
+        // this should always run at least once since
+        // the queue starts with a ;
+        if(!commands.empty())
+        {
+            connector = isConnector(commands.front());
+            commands.pop();
+        }
+        
+        // this would only fail the first time if the queue
+        // was empty
+        if(!commands.empty())
+        {
+            cmd = makeCommand(commands);
+            run(cmd, connector);
+        }
+        
+        // deallocates memory
+        for(int i = 0; i < cmd.size(); ++i)
+            delete cmd.at(i);
+    }
+}
