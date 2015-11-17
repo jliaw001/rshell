@@ -14,15 +14,17 @@ using namespace std;
 using namespace boost;
 
 // Helper Functions:
-// function to remove everything after a '#'
-// as these are all comments and can be ignored
-string removeComments(string s);
-
 // function to check if a particular token
 // is a connector and returns an int depending
 // on which connector it is
 // returns -1 if not a connector
 int isConnector(string s);
+
+// function to put together a string held within quotations
+void makeString(queue<string> &commands, vector<char*> &cmd);
+
+// pops everything after a '#' off the queue
+void removeComments(queue<string> &commands);
 
 // function to iterate through the command vector
 // and separate the commands based on connectors
@@ -102,26 +104,17 @@ int main()
 		    continue;
 		    
 		trim(input);
-		input = removeComments(input);
 		
 		// separate the input into the commands vector
 		commands.push(";");
 		parseInput(input, commands);
+		removeComments(commands);
 
         // run the commands
         runCommands(commands);
 	}
 	
 	return 0;
-}
-
-string removeComments(string s)
-{
-	// if there are no comments, we're done
-	if(s.find('#') == string::npos)
-		return s;
-
-	return s.substr(0, s.find('#'));
 }
 
 int isConnector(string s)
@@ -136,14 +129,84 @@ int isConnector(string s)
     return -1;
 }
 
-void parseInput(string input, queue<string> &commands)
+void makeString(queue<string> &commands, vector<char*> &cmd)
 {
-    char_separator<char> sep(" ;()[]", ";()[]", keep_empty_tokens);
-	tokenizer< char_separator<char> >  cmds(input, sep);
-	tokenizer< char_separator<char> >::iterator it = cmds.begin();
-	for(; it != cmds.end(); ++it)
-	    if(*it != "")
-	        commands.push(*it);
+    bool done = false;
+    // get rid of the begin quote
+    commands.pop();
+    while(!done)
+    {
+        // check to see if the quotation was ended properly
+        if(commands.empty())
+        {
+            cout << "Error: Missing ending quote" << endl;
+            exit(1);
+        }
+        
+        // checking for the ending quote
+        else if(commands.front() == "\"")
+        {
+            commands.pop();
+            done = true;
+        }
+        else
+        {
+            char *arg = new char[commands.front().size()];
+            strcpy(arg, commands.front().c_str());
+            cmd.push_back(arg);
+            commands.pop();
+        }
+        
+    }
+}
+
+void removeComments(queue<string> &commands)
+{
+    // keeps track of when a quotation starts
+    bool start_quote = false;
+    // keeps track of when a quotation ends
+    // defaults to true since we technically "ended" nonexistant quotes
+    bool end_quote = true;
+    // temporary queue to hold stuff
+    queue<string> temp;
+    
+    // main loop to iterate through and remove #'s not within quotations
+    while(!commands.empty())
+    {
+        // checks for beginning quotes
+        if(commands.front() == "\"" && !start_quote && end_quote)
+        {
+            start_quote = true;
+            end_quote = false;
+            temp.push(commands.front());
+            commands.pop();
+        }
+        
+        // checks for ending quotes
+        else if(commands.front() == "\"" && start_quote && !end_quote)
+        {
+            start_quote = false;
+            end_quote = true;
+            temp.push(commands.front());
+            commands.pop();
+        }
+        
+        // deletes everything after a # if it isn't within two quotes
+        else if(!start_quote && commands.front().find("#") != string::npos)
+        {
+            while(!commands.empty())
+                commands.pop();
+        }
+        
+        else
+        {
+            temp.push(commands.front());
+            commands.pop();
+        }
+    }
+    
+    // get the commentless queue stored in temp back into commands
+    commands = temp;
 }
 
 vector<char*> makeCommand(queue<string> &commands)
@@ -155,10 +218,17 @@ vector<char*> makeCommand(queue<string> &commands)
         // less than 0 means it's not a connector
         if(!commands.empty() && isConnector(commands.front()) < 0)
         {
-    		char *arg = new char[commands.front().size()];
-    		strcpy(arg, commands.front().c_str());
-    		cmd.push_back(arg);
-    		commands.pop();
+            if(commands.front() == "\"")
+            {
+                makeString(commands, cmd);
+            }
+            else
+            {
+        		char *arg = new char[commands.front().size()];
+        		strcpy(arg, commands.front().c_str());
+        		cmd.push_back(arg);
+        		commands.pop();
+            }
         }
         else
         {
@@ -204,7 +274,7 @@ void run(vector<char*> cmd, int connector)
             exit(0);
         
         if(connector == AND && *failed)
-            exit(0);
+            exit(1);
         
         else
         {
@@ -245,6 +315,16 @@ void run(vector<char*> cmd, int connector)
     }
 }
 
+void parseInput(string input, queue<string> &commands)
+{
+    char_separator<char> sep(" ;()[]\"", ";()[]\"", keep_empty_tokens);
+	tokenizer< char_separator<char> >  cmds(input, sep);
+	tokenizer< char_separator<char> >::iterator it = cmds.begin();
+	for(; it != cmds.end(); ++it)
+	    if(*it != "")
+	        commands.push(*it);
+}
+
 void runCommands(queue<string> &commands)
 {
     // vector of char* to store command in a way
@@ -273,7 +353,8 @@ void runCommands(queue<string> &commands)
         }
         
         // deallocates memory
-        for(int i = 0; i < cmd.size(); ++i)
-            delete cmd.at(i);
+        if(!cmd.empty())
+        	for(unsigned i = 0; i < cmd.size(); ++i)
+            	delete cmd.at(i);
     }
 }
