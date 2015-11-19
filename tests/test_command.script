@@ -1,0 +1,34 @@
+Script started on Wed 18 Nov 2015 10:46:41 PM PST
+jliaw001@hammer:~/cs100/rshell
+[jliaw001@hammer rshell]$ bin/rshell
+[jliaw001@hammer.cs.ucr.edu]$ test /tests/single_command.script && echo exists
+exists
+[jliaw001@hammer.cs.ucr.edu]$ test -e /tests/single_command.script && echo exists
+exists
+[jliaw001@hammer.cs.ucr.edu]$ test -f /tests/single_command.script && echo is regular file
+is regular file
+[jliaw001@hammer.cs.ucr.edu]$ test -d /tests/single_command.script && echo is directory
+[jliaw001@hammer.cs.ucr.edu]$ test -d /tests && echo is directory
+is directory
+[jliaw001@hammer.cs.ucr.edu]$ test -d /test && echo is regular file
+could not get file status: No such file or directory
+[jliaw001@hammer.cs.ucr.edu]$ test -f /tests && echo is regular file
+[jliaw001@hammer.cs.ucr.edu]$ [ -e /tests/single_command.script ] && echo file exists
+exists
+[jliaw001@hammer.cs.ucr.edu]$ [ -e /tests/single_command.script ] && echo exists
+exists
+[jliaw001@hammer.cs.ucr.edu]$ [ -d /tests/single_command.script ] && echo is directory
+[jliaw001@hammer.cs.ucr.edu]$ [ -d /tests ] && echo is directory
+is directory
+[jliaw001@hammer.cs.ucr.edu]$ [ -f /tests ] && echo is regular file
+[jliaw001@hammer.cs.ucr.edu]$ [ -d /tests ] && echo exists
+exists
+[jliaw001@hammer.cs.ucr.edu]$ test -e /tests/dfsoijfewf || echo file does not exist
+could not get file status: No such file or directory
+file does not exist
+[jliaw001@hammer.cs.ucr.edu]$ exit
+jliaw001@hammer:~/cs100/rshell
+[jliaw001@hammer rshell]$ exit
+exit
+
+Script done on Wed 18 Nov 2015 10:51:41 PM PST
