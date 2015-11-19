@@ -1,0 +1,43 @@
+Script started on Wed 18 Nov 2015 11:00:20 PM PST
+jliaw001@hammer:~/cs100/rshell
+[jliaw001@hammer rshell]$ bin/rshell
+[jliaw001@hammer.cs.ucr.edu]$ (echo A && echo B) || (echo C && echo D)
+A
+B
+[jliaw001@hammer.cs.ucr.edu]$ ((ls -j && ls -j) || (echo A && echo B)) || (echo C && echo D)
+ls: invalid option -- 'j'
+Try `ls --help' for more information.
+A
+B
+[jliaw001@hammer.cs.ucr.edu]$ (((ls -j && ls -j) || (echo A && echo B)) || (echo C && echo D)) && echo E
+ls: invalid option -- 'j'
+Try `ls --help' for more information.
+A
+B
+E
+[jliaw001@hammer.cs.ucr.edu]$ (echo A && echo B) || (echo C && echo D) && (echo E && echo F)
+A
+B
+E
+F
+[jliaw001@hammer.cs.ucr.edu]$ ([ -e src/rshell.cpp ] && echo exists) || echo does not exist
+exists
+[jliaw001@hammer.cs.ucr.edu]$ ([ -e src/nothere.cpp ] && echo exists) || echo does not exist
+could not get file status: No such file or directory
+does not exist
+[jliaw001@hammer.cs.ucr.edu]$ ls && ([ -f src/rshell.cpp ] && echo is a regular file) || echo does not exist && exit
+bin  LICENSE  makefile	README.md  src	tests
+is a regular file
+jliaw001@hammer:~/cs100/rshell
+[jliaw001@hammer rshell]$ bin/rshell
+[jliaw001@hammer.cs.ucr.edu]$ ((ls -j && echo A) && (echo B && echo C)) || echo ayy lmao
+ls: invalid option -- 'j'
+Try `ls --help' for more information.
+ayy lmao
+[jliaw001@hammer.cs.ucr.edu]$ [ -d /src/rshell.cpp ] && echo is a directory || echo not a directory && exit)
+not a directory
+jliaw001@hammer:~/cs100/rshell
+[jliaw001@hammer rshell]$ exit
+exit
+
+Script done on Wed 18 Nov 2015 11:07:05 PM PST
