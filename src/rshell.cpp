@@ -59,7 +59,7 @@ void runCommands(queue<string> &commands);
 // pfailed is for checking commands within
 // precedence operators
 static bool *failed;
-//static bool * pfailed;
+static bool *group_pass;
 
 // some global constants for connectors
 const int SEMI_COLON = 0;
@@ -77,6 +77,13 @@ int main()
 	// using mmap to preserve the bool through child processes
 	failed = static_cast<bool *>(mmap(NULL, sizeof *failed, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0));
     if(failed == MAP_FAILED)
+    {
+        perror("Could not return state of process");
+        exit(1);
+    }
+    
+    group_pass = static_cast<bool *>(mmap(NULL, sizeof *failed, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0));
+    if(group_pass == MAP_FAILED)
     {
         perror("Could not return state of process");
         exit(1);
@@ -101,6 +108,9 @@ int main()
 	    // set initial value to false since nothing has failed yet
 	    *failed = false;
 	    
+	    // assuming nothing in the group worked
+	    *group_pass = false;
+	    
 	    // prints console
 		// only prints host and login if both existed
 		if(gotName && login)
@@ -115,7 +125,11 @@ int main()
 		    
 		trim(input);
 		
-		// separate the input into the commands vector
+		// makes sure nothing is left in the queue
+		while(!commands.empty())
+		    commands.pop();
+		
+		// separate the input into the commands queue
 		commands.push(";");
 		parseInput(input, commands);
 		removeComments(commands);
@@ -236,7 +250,7 @@ vector<char*> makeCommand(queue<string> &commands)
             }
             
             // checks for the test command being passed in
-            else if(commands.front() == "test" || commands.front() == "[")
+            else if(cmd.empty() && (commands.front() == "test" || commands.front() == "["))
             {
                 *failed = test(commands, cmd);
                 // the test command has already been taken care of by this point 
@@ -248,6 +262,12 @@ vector<char*> makeCommand(queue<string> &commands)
                 // has already been taken care of and the program can move on
                 vector<char*> nocmd;
                 return nocmd;
+            }
+            
+            // command making stops at operators or )'s
+            else if(commands.front() == ")")
+            {
+                done = true;
             }
             
             // default way of handling commands
@@ -276,9 +296,9 @@ void run(vector<char*> cmd, int connector)
     {
         if(connector == SEMI_COLON)
             exit(0);
-        else if(connector == OR && *failed)
+        else if(connector == OR && (*failed && !*group_pass))
             exit(0);
-        else if(connector == AND && !*failed)
+        else if(connector == AND && (!*failed && *group_pass))
             exit(0);
         else
             return;
@@ -299,10 +319,10 @@ void run(vector<char*> cmd, int connector)
     // we're in the child
     else if(pid == 0)
     {
-        if(connector == OR && !*failed)
+        if(connector == OR && (!*failed && *group_pass))
             exit(0);
         
-        if(connector == AND && *failed)
+        if(connector == AND && (*failed && !*group_pass))
             exit(1);
         
         else
@@ -335,11 +355,17 @@ void run(vector<char*> cmd, int connector)
 		    
 		    // 0 is the only time it succeeds
 		    if(exit_status == 0)
+		    {
 		        *failed = false;
+		        *group_pass = true;
+		    }
 		        
 		    // anything else means it failed in some way
 		    else
+		    {
+		        *group_pass = false;
 		        *failed = true;
+		    }
 		}
     }
 }
@@ -352,6 +378,9 @@ bool isTestFlag(string s)
     return false;
 }
 
+// valid flags: -e: exists
+//              -f: is a regular file
+//              -d: is a directory
 bool test(queue<string> &commands, vector<char*> &cmd)
 {
     // keeps track of whether or not the test flag was passed
@@ -459,13 +488,54 @@ void runCommands(queue<string> &commands)
     
     while(!commands.empty())
     {
+        if(commands.front() == ")")
+        {
+            *failed = false;
+            commands.pop();
+            return;
+        }
+        
         // this should always run at least once since
         // the queue starts with a ;
-        if(!commands.empty())
+        if(!commands.empty() && commands.front() != "(" && (isConnector(commands.front()) >= 0))
         {
             connector = isConnector(commands.front());
             commands.pop();
         }
+        
+        // if we run into a parentheses, we got a whole lot to do now
+        if(commands.front() == "(")
+        {
+            if(connector == SEMI_COLON)
+            {
+                commands.pop();
+                runCommands(commands);
+            }
+            
+            else if(connector == OR && !*group_pass)
+            {
+                commands.pop();
+                runCommands(commands);
+            }
+            
+            else if(connector == AND && *group_pass)
+            {
+                commands.pop();
+                runCommands(commands);
+            }
+            else
+            {
+                while(commands.front() != ")")
+                    commands.pop();
+                commands.pop();
+            }
+        }
+        
+        if(commands.empty())
+            break;
+        
+        if(isConnector(commands.front()) >= 0  || commands.front() == ")")
+            continue;
         
         // this would only fail the first time if the queue
         // was empty
