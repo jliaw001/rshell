@@ -6,6 +6,8 @@
 #include <iostream>
 #include <queue>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
@@ -33,6 +35,14 @@ vector<char*> makeCommand(vector<string> &commands);
 
 // fuction that forks and runs a given command
 void run(vector<char*> cmd, int connector);
+
+// function that tells whether a given string is a valid
+// flag for the test command
+bool isTestFlag(string s);
+
+// Additional Functions:
+// runs the test function and returns a bool
+bool test(queue<string> &commands, vector<char*> &cmd);
 
 // Main Functions:
 // parses the input and stores the tokens
@@ -218,10 +228,29 @@ vector<char*> makeCommand(queue<string> &commands)
         // less than 0 means it's not a connector
         if(!commands.empty() && isConnector(commands.front()) < 0)
         {
+            // check if there's quotation marks to indicate where something
+            // is just gonna be text and not a command
             if(commands.front() == "\"")
             {
                 makeString(commands, cmd);
             }
+            
+            // checks for the test command being passed in
+            else if(commands.front() == "test" || commands.front() == "[")
+            {
+                *failed = test(commands, cmd);
+                // the test command has already been taken care of by this point 
+                // empty the cmd vector
+                for(unsigned i = 0; i < cmd.size(); ++i)
+                    delete cmd.at(i);
+                
+                // returning with an empty cmd vector shows that the command
+                // has already been taken care of and the program can move on
+                vector<char*> nocmd;
+                return nocmd;
+            }
+            
+            // default way of handling commands
             else
             {
         		char *arg = new char[commands.front().size()];
@@ -315,6 +344,100 @@ void run(vector<char*> cmd, int connector)
     }
 }
 
+bool isTestFlag(string s)
+{
+    string flags = "-e -f -d";
+    if(flags.find(s) != string::npos)
+        return true;
+    return false;
+}
+
+bool test(queue<string> &commands, vector<char*> &cmd)
+{
+    // keeps track of whether or not the test flag was passed
+    // symbolically
+    bool symbolic = false;
+    
+    // keeps track of which flag the user passed in
+    // defaults to -e if no flag is passed in
+    string flag = "-e";
+    
+    // struct to hold all the info about a path
+    struct stat buffer;
+    
+    // get rid of the "test" or [
+    if(commands.front() == "[")
+        symbolic = true;
+    commands.pop();
+    
+    // checking for flags the user may have passed in
+    if(isTestFlag(commands.front()))
+    {
+        flag = commands.front();
+        commands.pop();
+    }
+    
+    // checking for invalid flags being passed in
+    // if invalid, remove everything until the next command
+    if(commands.front().at(0) == '-')
+    {
+        cout << "Error: invalid flag(s)" << endl;
+        while(!isConnector(commands.front()))
+            commands.pop();
+        
+        return true;
+    }
+
+    // stat() doesn't like paths starting with '/' so we're gonna
+    // need to delete that
+    if(commands.front().at(0) == '/')
+        commands.front().erase(0, 1);
+    
+    // all the cmd vector needs to hold in here is the
+    // one char* containing the path to check
+    char *path = new char[commands.front().size()];
+    strcpy(path, commands.front().c_str());
+    cmd.push_back(path);
+    commands.pop();
+    
+    // if test was called symbolically, then we have to
+    // get rid of the close ]
+    if(symbolic)
+        commands.pop();
+        
+    // int to keep track of if stat failed or not    
+    int status = stat(cmd.front(), &buffer);
+    
+    // checks if stat failed or not
+    if(status < 0)
+    {
+        perror("could not get file status");
+        return true;
+    }
+    
+    if(flag == "-e")
+        return false;
+    
+    // check the flag and run the appropriate checks
+    if(flag == "-f")
+    {
+        if(S_ISREG(buffer.st_mode))
+            return false;
+     
+        return true;       
+    }
+    
+    if(flag == "-d")
+    {
+        if(S_ISDIR(buffer.st_mode))
+            return false;
+        
+        return true;
+    }
+    
+    return true;
+}
+
 void parseInput(string input, queue<string> &commands)
 {
     char_separator<char> sep(" ;()[]\"", ";()[]\"", keep_empty_tokens);
@@ -349,12 +472,15 @@ void runCommands(queue<string> &commands)
         if(!commands.empty())
         {
             cmd = makeCommand(commands);
-            run(cmd, connector);
+            if(!cmd.empty())
+                run(cmd, connector);
         }
         
         // deallocates memory
         if(!cmd.empty())
-        	for(unsigned i = 0; i < cmd.size(); ++i)
-            	delete cmd.at(i);
+        {
+            for(unsigned i = 0; i < cmd.size(); ++i)
+                delete cmd.at(i);
+        }
     }
 }
