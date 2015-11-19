@@ -1,7 +1,8 @@
 Script started on Wed 18 Nov 2015 10:46:41 PM PST
 jliaw001@hammer:~/cs100/rshell
 [jliaw001@hammer rshell]$ bin/rshell
-[jliaw001@hammer.cs.ucr.edu]$ test -e /tests/single_command.script
+[jliaw001@hammer.cs.ucr.edu]$ test /tests/single_command.script && echo exists
+exists
 [jliaw001@hammer.cs.ucr.edu]$ test -e /tests/single_command.script && echo exists
 exists
 [jliaw001@hammer.cs.ucr.edu]$ test -f /tests/single_command.script && echo is regular file
